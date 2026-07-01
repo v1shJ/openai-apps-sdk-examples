@@ -80,12 +80,6 @@ function widgetDescriptorMeta(widget: PizzazWidget) {
     "openai/toolInvocation/invoking": widget.invoking,
     "openai/toolInvocation/invoked": widget.invoked,
     "openai/widgetAccessible": true,
-
-    "openai/widgetDomain": "https://tkhfh1bq-8000.inc1.devtunnels.ms/",
-    "openai/widgetCSP": {
-      connect_domains: [],
-      resource_domains: ["https://tkhfh1bq-8000.inc1.devtunnels.ms/"],
-    }
   } as const;
 }
 
