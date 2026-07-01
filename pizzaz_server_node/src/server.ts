@@ -93,6 +93,7 @@ function widgetInvocationMeta(widget: PizzazWidget) {
   return {
     "openai/toolInvocation/invoking": widget.invoking,
     "openai/toolInvocation/invoked": widget.invoked,
+    "openai/outputTemplate": widget.templateUri,
   } as const;
 }
 
@@ -214,20 +215,23 @@ function createPizzazServer(): Server {
 
   server.setRequestHandler(
     ListResourcesRequestSchema,
-    async (_request: ListResourcesRequest) => ({
-      resources,
-    })
+    async (_request: ListResourcesRequest) => {
+      console.log("==> listing resources");
+      return { resources };
+    }
   );
 
   server.setRequestHandler(
     ReadResourceRequestSchema,
     async (request: ReadResourceRequest) => {
+      console.log(`==> reading resource ${request.params.uri}`);
+
       const widget = widgetsByUri.get(request.params.uri);
 
       if (!widget) {
         throw new Error(`Unknown resource: ${request.params.uri}`);
       }
-
+      console.log("Returning resource contents");
       return {
         contents: [
           {
@@ -243,16 +247,18 @@ function createPizzazServer(): Server {
 
   server.setRequestHandler(
     ListResourceTemplatesRequestSchema,
-    async (_request: ListResourceTemplatesRequest) => ({
-      resourceTemplates,
-    })
+    async (_request: ListResourceTemplatesRequest) => {
+      console.log("==> listing resource templates");
+      return { resourceTemplates };
+    }
   );
 
   server.setRequestHandler(
     ListToolsRequestSchema,
-    async (_request: ListToolsRequest) => ({
-      tools,
-    })
+    async (_request: ListToolsRequest) => {
+      console.log("==> listing tools");
+      return { tools };
+    }
   );
 
   server.setRequestHandler(
@@ -295,14 +301,17 @@ const ssePath = "/mcp";
 const postPath = "/mcp/messages";
 
 async function handleSseRequest(res: ServerResponse) {
+  console.log("[SSE] New client connected");
   res.setHeader("Access-Control-Allow-Origin", "*");
   const server = createPizzazServer();
   const transport = new SSEServerTransport(postPath, res);
   const sessionId = transport.sessionId;
 
+  console.log(`[SSE] Session ID: ${sessionId}`);
   sessions.set(sessionId, { server, transport });
 
   transport.onclose = async () => {
+    console.log(`[SSE] Session ${sessionId} closed`);
     sessions.delete(sessionId);
     await server.close();
   };
@@ -327,6 +336,7 @@ async function handlePostMessage(
   res: ServerResponse,
   url: URL
 ) {
+  console.log(`[POST] ${req.method} ${req.url} @ ${new Date().toISOString()}`);
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
   const sessionId = url.searchParams.get("sessionId");
@@ -357,6 +367,11 @@ const portEnv = Number(process.env.PORT ?? 8000);
 const port = Number.isFinite(portEnv) ? portEnv : 8000;
 
 const httpServer = createServer(
+  async (req: IncomingMessage, res: ServerResponse) => {
+    console.log(
+      `[HTTP] ${req.method} ${req.url} @ ${new Date().toISOString()}`
+    );
+
   async (req: IncomingMessage, res: ServerResponse) => {
     if (!req.url) {
       res.writeHead(400).end("Missing URL");
